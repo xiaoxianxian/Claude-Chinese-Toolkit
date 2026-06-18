@@ -1,20 +1,40 @@
 # Claude Desktop 简体中文汉化工具包
 
+[![GitHub Release](https://img.shields.io/github/v/release/xiaoxianxian/Claude-Chinese-Toolkit?color=blue)](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/releases/latest)
+
 一键将 Claude Desktop（macOS）界面汉化为简体中文。  
 支持多版本自动检测，Claude 更新后重新运行即可。
 
+## 下载方式
+
+**推荐：下载 GitHub Release（无需 git）**
+
+→ [点击下载最新版 ZIP](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/releases/latest)
+
+解压后直接运行 `bash claude-zh-CN.sh` 即可。
+
 ## 快速开始
 
+**方式一：下载 Release 包（无需 git，推荐）**
+
+1. 打开 [Releases 页面](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/releases/latest)
+2. 下载 `Claude-Chinese-Toolkit-v2.2.zip`
+3. 解压，在终端中运行：
+   ```bash
+   cd ~/Downloads/Claude-Chinese-Toolkit-v2.2
+   bash claude-zh-CN.sh
+   ```
+4. 完全退出 Claude（**Cmd+Q**）后重新打开，界面即为中文
+
+**方式二：用 Git 克隆**
+
 ```bash
-# 1. 下载本仓库
 git clone https://github.com/xiaoxianxian/Claude-Chinese-Toolkit.git
 cd Claude-Chinese-Toolkit
-
-# 2. 确保 Claude 已完全退出（Cmd+Q），然后执行
 bash claude-zh-CN.sh
-
-# 3. 重新打开 Claude，界面即为中文
 ```
+
+> 📖 完整安装说明详见 [INSTALL.md](INSTALL.md)
 
 ## 适用版本
 
@@ -44,10 +64,11 @@ Claude Desktop 基于 Electron + React，界面语言由三个层面决定：
 
 ```
 Claude-Chinese-Toolkit/
-├── claude-zh-CN.sh          # 一键汉化脚本（bash 入口）
-├── patch_js.py              # JS 补丁脚本（自动检测版本）
+├── INSTALL.md               # 安装说明（新手必读）
 ├── README.md                # 本文件
-└── language-pack/
+├── claude-zh-CN.sh        # 一键汉化脚本（bash 入口）
+├── patch_js.py              # JS 补丁脚本（自动检测版本）
+└── language-pack/          # 中文翻译文件
     ├── zh-CN.json                 # 前端翻译（~1MB）
     ├── desktop-shell-zh-CN.json  # 后端/桌面端翻译
     ├── Localizable.strings        # macOS 本地化字符串

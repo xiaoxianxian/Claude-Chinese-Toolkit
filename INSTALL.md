@@ -12,7 +12,20 @@ git clone https://github.com/xiaoxianxian/Claude-Chinese-Toolkit.git
 cd Claude-Chinese-Toolkit
 ```
 
-**方式 B：直接下载 ZIP**
+**方式 B：下载 GitHub Release（推荐，最省事）**
+1. 打开 [Release 页面](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/releases/latest)
+2. 在 **Assets** 下方找到 `Claude-Chinese-Toolkit-v2.2.zip`，点击下载
+3. 解压 ZIP，得到完整工具包
+
+> 💡 Release 包是打包好的稳定版本，不需要安装 git，解压即用。
+
+**方式 C：用 Git 下载**
+```bash
+git clone https://github.com/xiaoxianxian/Claude-Chinese-Toolkit.git
+cd Claude-Chinese-Toolkit
+```
+
+**方式 D：直接下载源码 ZIP**
 1. 打开 https://github.com/xiaoxianxian/Claude-Chinese-Toolkit
 2. 点击绿色的 **Code** 按钮 → **Download ZIP**
 3. 解压下载的 ZIP 文件
