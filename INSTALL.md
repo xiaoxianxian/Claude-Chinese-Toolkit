@@ -1,38 +1,40 @@
 # 安装说明
 
-## 一键安装（推荐）
+> 🍺 **有 Homebrew？** 直接看 [Homebrew 安装说明](HOMEBREW.md) — 一行命令搞定！
 
-**适用系统：** macOS（Claude Desktop）
+---
 
-### 步骤一：下载工具包
+## 方式一：下载 Release 包（推荐，无需 git）
 
-**方式 A：用 Git 下载（推荐）**
-```bash
-git clone https://github.com/xiaoxianxian/Claude-Chinese-Toolkit.git
-cd Claude-Chinese-Toolkit
-```
+> 适合不想装 Homebrew 或 git 的用户。
 
-**方式 B：下载 GitHub Release（推荐，最省事）**
 1. 打开 [Release 页面](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/releases/latest)
-2. 在 **Assets** 下方找到 `Claude-Chinese-Toolkit-v2.2.zip`，点击下载
+2. 在 **Assets** 下方找到 `Claude-Chinese-Toolkit-v2.3.zip`，点击下载
 3. 解压 ZIP，得到完整工具包
 
 > 💡 Release 包是打包好的稳定版本，不需要安装 git，解压即用。
 
-**方式 C：用 Git 下载**
+---
+
+## 方式二：用 Git 克隆
+
 ```bash
 git clone https://github.com/xiaoxianxian/Claude-Chinese-Toolkit.git
 cd Claude-Chinese-Toolkit
+bash claude-zh-CN.sh
 ```
 
-**方式 D：直接下载源码 ZIP**
+---
+
+## 方式三：直接下载源码 ZIP
+
 1. 打开 https://github.com/xiaoxianxian/Claude-Chinese-Toolkit
 2. 点击绿色的 **Code** 按钮 → **Download ZIP**
 3. 解压下载的 ZIP 文件
 
 ---
 
-### 步骤二：运行汉化脚本
+## 运行汉化脚本
 
 打开**终端**（Terminal），执行：
 
@@ -42,7 +44,7 @@ bash claude-zh-CN.sh
 ```
 
 > 💡 把 `/path/to` 换成你实际解压的路径，比如：
-> `cd ~/Downloads/Claude-Chinese-Toolkit`
+> `cd ~/Downloads/Claude-Chinese-Toolkit-v2.3`
 
 脚本会自动：
 1. 检测你的 Claude 版本（新旧版都能处理）
@@ -54,7 +56,7 @@ bash claude-zh-CN.sh
 
 ---
 
-### 步骤三：重启 Claude
+## 重启 Claude
 
 完全退出 Claude（**Cmd+Q**，不是只是关闭窗口），然后重新打开。
 
@@ -76,16 +78,27 @@ sudo bash claude-zh-CN.sh
 cd /path/to/Claude-Chinese-Toolkit
 bash claude-zh-CN.sh
 ```
+如果用的是 Homebrew 安装：
+```bash
+sudo claude-zh
+```
 
 ### Q：想恢复英文界面？
 **A：** 脚本会自动备份原始文件，恢复方法：
 ```bash
-# 查看备份文件
+# 1. 查看备份文件
 ls /path/to/Claude-Chinese-Toolkit/backups/
 
-# 手动恢复（把 .bak 文件复制回原处，或重新安装 Claude）
-```
+# 2. 还原 JS 文件（文件名以 index- 开头）
+sudo cp backups/index-XXXXXX.js.YYYYMMDD_HHMMSS \
+  "/Applications/Claude.app/Contents/Resources/ion-dist/assets/v1/index-XXXXXX.js"
 
+# 3. 删除中文翻译
+sudo rm "/Applications/Claude.app/Contents/Resources/zh-CN.json"
+sudo rm "/Applications/Claude.app/Contents/Resources/ion-dist/i18n/zh-CN.json"
+
+# 4. 重启 Claude
+```
 最简单的方法：重新安装 Claude Desktop，会自动恢复原始文件。
 
 ### Q：支持 Windows 吗？

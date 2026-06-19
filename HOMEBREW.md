@@ -1,50 +1,30 @@
-# Homebrew 安装说明
+# Homebrew 安装 Claude-Chinese-Toolkit
 
-> 通过 Homebrew 安装 Claude-Chinese-Toolkit，支持一键安装和未来自动更新。
+## 📦 Tap 仓库
+
+- **GitHub 地址**: https://github.com/xiaoxianxian/homebrew-claude-zh
+- **Tap 名称**: `xiaoxianxian/claude-zh`
+- **Formula**: `claude-zh`
 
 ---
 
-## 📦 安装步骤
+## 🚀 安装步骤
 
-### 1. 设置 Homebrew Tap（首次）
-
-Claude-Chinese-Toolkit 需要自己的 Homebrew Tap 仓库。
-
-**方式 A：使用已创建的 Tap（推荐）**
-
-如果 Tap 仓库 `xiaoxianxian/homebrew-claude-zh` 已创建：
+### 1. 添加 Tap
 
 ```bash
 brew tap xiaoxianxian/claude-zh
 ```
 
-**方式 B：手动创建 Tap 仓库**
-
-如果 Tap 仓库尚未创建，需要先在 GitHub 上创建：
-
-1. 在 GitHub 上创建新仓库，名称为：`homebrew-claude-zh`
-2. 仓库名必须以 `homebrew-` 开头
-3. 设为 Public
-4. 然后在本地 clone 并添加 Formula：
+如果之前添加过本地 Tap（指向 `/tmp/...`），先删除再添加：
 
 ```bash
-# Clone Tap 仓库
-git clone https://github.com/xiaoxianxian/homebrew-claude-zh.git
-cd homebrew-claude-zh
+# 删除旧 Tap
+sudo rm -rf /opt/homebrew/Library/Taps/xiaoxianxian/homebrew-claude-zh/
 
-# 复制 Formula 文件
-cp /path/to/Claude-Chinese-Toolkit/claude-zh.rb .
-
-# 提交并推送
-git add claude-zh.rb
-git commit -m "Add claude-zh formula"
-git push origin main
-
-# 添加 Tap
+# 重新添加（从 GitHub）
 brew tap xiaoxianxian/claude-zh
 ```
-
----
 
 ### 2. 安装
 
@@ -52,117 +32,104 @@ brew tap xiaoxianxian/claude-zh
 brew install claude-zh
 ```
 
----
-
-### 3. 使用
+### 3. 运行汉化
 
 ```bash
-# 完整运行（推荐）
 sudo claude-zh
+```
 
-# 检查是否需要重新汉化
+### 4. 检查状态（无需 sudo）
+
+```bash
 claude-zh --check
 ```
 
 ---
 
-### 4. 更新
+## 🔄 更新
 
-Claude 更新后，界面会变回英文。重新运行汉化：
+Claude 更新后，重新运行汉化即可：
 
 ```bash
-# 更新工具本身
+brew update
 brew upgrade claude-zh
-
-# 重新应用汉化
 sudo claude-zh
 ```
 
 ---
 
-## 🔧 手动测试 Formula
-
-如果你想在提交前测试 Formula：
-
-```bash
-# 从本地文件安装（不提交到 Tap）
-brew install --build-from-source ./claude-zh.rb
-
-# 测试
-sudo claude-zh --check
-
-# 卸载
-brew uninstall claude-zh
-```
-
----
-
-## 📝 Formula 更新流程
-
-当 Claude-Chinese-Toolkit 发布新版本后，更新 Formula：
-
-1. **下载新版本的 tarball**：
-   ```bash
-   # 在本 repo 打 tag 后，GitHub 会自动创建 tarball
-   # URL 格式：https://github.com/USER/REPO/archive/refs/tags/vX.Y.Z.tar.gz
-   ```
-
-2. **计算 SHA256**：
-   ```bash
-   curl -L -o /tmp/claude-zh.tar.gz "https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/archive/refs/tags/v2.3.tar.gz"
-   shasum -a 256 /tmp/claude-zh.tar.gz
-   ```
-
-3. **更新 `claude-zh.rb`**：
-   - 修改 `url` 中的版本号
-   - 替换 `sha256` 为实际值
-
-4. **提交到 Tap 仓库**：
-   ```bash
-   cd homebrew-claude-zh
-   git add claude-zh.rb
-   git commit -m "Update claude-zh to v2.3"
-   git push origin main
-   ```
-
-5. **用户更新**：
-   ```bash
-   brew update
-   brew upgrade claude-zh
-   ```
-
----
-
-## ❓ 常见问题
-
-<details>
-<summary><b>Q: brew tap 失败？</b></summary>
-
-确保 Tap 仓库存在且公开。如果尚未创建，按照「方式 B」手动创建。
-</details>
-
-<details>
-<summary><b>Q: 安装后运行提示找不到 Python？</b></summary>
-
-确保已安装 Python 3：
-```bash
-brew install python@3.9
-```
-</details>
-
-<details>
-<summary><b>Q: 如何卸载？</b></summary>
+## 🗑️ 卸载
 
 ```bash
 brew uninstall claude-zh
+sudo rm -f /Applications/Claude.app/Contents/Resources/zh-CN.json
+sudo rm -f /Applications/Claude.app/Contents/Resources/ion-dist/i18n/zh-CN.json
 ```
-注意：卸载工具不会自动移除已应用的汉化。如需还原，参见 [INSTALL.md](INSTALL.md) 的「如何还原」章节。
-</details>
 
 ---
 
-## 🔗 相关链接
+## ❓ 故障排除
 
-- [Claude-Chinese-Toolkit 主仓库](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit)
-- [Homebrew 官方文档](https://docs.brew.sh/How-to-Create-and-Maintain-a-Tap)
-- [Formula Cookbook](https://docs.brew.sh/Formula-Cookbook)
+### Q: `brew install claude-zh` 提示 "No available formula"
+
+原因：Tap 指向了旧的本地路径（`/tmp/homebrew-claude-zh/`），但那个目录里当时还没有提交。
+
+解决方法：
+
+```bash
+# 1. 删除旧 Tap
+sudo rm -rf /opt/homebrew/Library/Taps/xiaoxianxian/homebrew-claude-zh/
+
+# 2. 重新从 GitHub 添加
+brew tap xiaoxianxian/claude-zh
+
+# 3. 确认 Formula 存在
+ls /opt/homebrew/Library/Taps/xiaoxianxian/homebrew-claude-zh/Formula/
+```
+
+### Q: 运行 `sudo claude-zh` 提示 "command not found"
+
+原因：Homebrew 的 `bin` 目录不在 `sudo` 的 `PATH` 里。
+
+解决方法：
+
+```bash
+# 查看 claude-zh 的实际路径
+which claude-zh
+# 输出类似：/opt/homebrew/bin/claude-zh
+
+# 用完整路径运行
+sudo /opt/homebrew/bin/claude-zh
+```
+
+### Q: 汉化后 Claude 仍是英文
+
+参考主仓库 [README FAQ](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit#-常见问题)
+
+---
+
+## 🔧 手动安装（不通过 Homebrew）
+
+如果不想用 Homebrew，可以直接下载 Release 包：
+
+1. 打开 https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/releases/latest
+2. 下载 `Claude-Chinese-Toolkit-v2.3.zip`
+3. 解压，在终端运行：
+   ```bash
+   cd ~/Downloads/Claude-Chinese-Toolkit-v2.3
+   bash claude-zh-CN.sh
+   ```
+4. **Cmd+Q 完全退出 Claude**，重新打开 → 中文界面 ✅
+
+---
+
+## 📝 技术细节
+
+`claude-zh` Formula 做了什么：
+
+1. 下载并安装 `patch_js.py` 到 `$(brew --prefix)/share/claude-zh/`
+2. 下载并安装 `language-pack/` 到 `$(brew --prefix)/share/claude-zh/`
+3. 创建包装脚本 `/opt/homebrew/bin/claude-zh`
+4. 运行 `sudo claude-zh` 时，脚本调用 `patch_js.py` 修改 `/Applications/Claude.app`
+
+Formula 源码：https://github.com/xiaoxianxian/homebrew-claude-zh/blob/main/Formula/claude-zh.rb
