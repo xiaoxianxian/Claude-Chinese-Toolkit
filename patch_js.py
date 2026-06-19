@@ -96,10 +96,12 @@ def check_needs_repatch(js_file):
     # 检查补丁是否仍然生效
     with open(js_file, "r") as f:
         content = f.read()
-    if 'GTt="zh-CN"' not in content:
-        return True, "JS 补丁1 未生效（GTt 未硬编码）"
-    if 'const n=PS(["zh-CN"])' not in content and 'const n=VS(["zh-CN"])' not in content:
-        return True, "JS 补丁2 未生效（API 覆盖未阻止）"
+    if 'Hzt="zh-CN"' not in content and 'GTt="zh-CN"' not in content:
+        return True, "JS 补丁1 未生效（Hzt/GTt 未硬编码）"
+    if 'documentElement.lang="zh-CN"' not in content and 'documentElement.lang=Hzt' in content:
+        return True, "JS 补丁2c 未生效（documentElement.lang 未硬编码）"
+    if 'if(e||!s?.locale)return' in content:
+        return True, "JS 补丁2b 未生效（Bzt 阻断未移除）"
 
     return False, "补丁已生效，无需重新汉化"
 
@@ -128,6 +130,8 @@ def print_status():
         print()
         print(f"  运行以下命令重新汉化:")
         print(f"    bash claude-zh-CN.sh")
+        print(f"  或手动在终端执行:")
+        print(f'    sudo python3 patch_js.py')
         return False
     else:
         print(f"✓ 汉化状态正常")
@@ -223,22 +227,34 @@ def patch_js(filepath, dry_run=False):
     applied = []
 
     # ── 补丁 1: 硬编码初始 locale ────────────────────────────────────────
-    # 匹配: GTt=任意函数名([...navigator.languages])
-    # 例如: GTt=VS([(...),...navigator.languages]) 或 GTt=PS([(...),...navigator.languages])
-    p1 = re.compile(r'GTt=\w+\(\[.*?navigator\.languages.*?\]\)')
-    m1 = p1.search(content)
-    if m1:
-        content = content[:m1.start()] + 'GTt="zh-CN"' + content[m1.end():]
-        applied.append("补丁1: GTt 硬编码为 zh-CN")
+    # Claude 1.14271.0+ 改变了初始化方式:
+    # const Uzt="spa:locale",Hzt=mN([...navigator.languages])
+    # 需要替换为: const Uzt="spa:locale",Hzt="zh-CN"
+    
+    p1_old = 'const Uzt="spa:locale",Hzt=mN([(()=>{try{return localStorage.getItem(Uzt)}catch{return null}})(),...navigator.languages])'
+    p1_new = 'const Uzt="spa:locale",Hzt="zh-CN"'
+    
+    if p1_old in content:
+        content = content.replace(p1_old, p1_new)
+        applied.append("补丁1: Hzt 硬编码为 zh-CN (新版初始化)")
     elif 'GTt="zh-CN"' in content:
         applied.append("补丁1: 已应用，跳过")
     else:
-        print(f"  ✗ 补丁1: 未找到匹配模式（Claude 版本可能不兼容）")
-        print(f"     请在 GitHub 提 issue 并附上 JS 文件名")
+        # 回退到旧模式
+        p1_fallback = re.compile(r'GTt=\w+\(\[.*?navigator\.languages.*?\]\)')
+        m1 = p1_fallback.search(content)
+        if m1:
+            content = content[:m1.start()] + 'GTt="zh-CN"' + content[m1.end():]
+            applied.append("补丁1: GTt 硬编码为 zh-CN (旧版)")
+        elif 'GTt="zh-CN"' in content:
+            applied.append("补丁1: 已应用，跳过")
+        else:
+            print(f"  ✗ 补丁1: 未找到匹配模式（Claude 版本可能不兼容）")
+            print(f"     请在 GitHub 提 issue 并附上 JS 文件名")
+            return False
 
-    # ── 补丁 2: 阻止 API 覆盖 ────────────────────────────────────────────
-    # 在 YTt 函数中，将 const n=任意函数名([s.locale]) 替换为固定值
-    # 上下文: WV().then(s=>{...const n=PS([s.locale]);...})
+    # ── 补丁 2: 阻止 API 覆盖 + 移除 Bzt 阻断 ────────────────────────────
+    # 2a. 阻止 API 回调覆盖 (旧版补丁)
     p2 = re.compile(r'const n=\w+\(\[s\.locale\]\)')
     m2 = p2.search(content)
     if m2:
@@ -248,6 +264,24 @@ def patch_js(filepath, dry_run=False):
         applied.append("补丁2: 已应用，跳过")
     else:
         print(f"  ✗ 补丁2: 未找到匹配模式（Claude 版本可能不兼容）")
+
+    # 2b. 移除 Bzt 函数中的阻断 (Claude 1.14271.0+ 新增)
+    # 原始: if(e||!s?.locale)return;
+    # 含义: 如果 s 没有 locale 属性，直接 return，不执行 zh-CN 设置
+    blocker = 'if(e||!s?.locale)return'
+    if blocker in content:
+        content = content.replace(blocker, 'if(e)return')
+        applied.append("补丁2b: 移除 Bzt 中的 !s?.locale 阻断")
+    
+    # 2c. 硬编码 documentElement.lang
+    old_lang = 'documentElement.lang=Hzt'
+    new_lang = 'documentElement.lang="zh-CN"'
+    if old_lang in content:
+        content = content.replace(old_lang, new_lang)
+        applied.append("补丁2c: documentElement.lang 硬编码为 zh-CN")
+    elif 'documentElement.lang="zh-CN"' in content:
+        if not any('zh-CN' in a for a in applied if '2c' in a):
+            applied.append("补丁2c: 已应用，跳过")
 
     # ── 写入或 dry-run ────────────────────────────────────────────────────
     if dry_run:

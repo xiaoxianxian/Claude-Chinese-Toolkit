@@ -88,13 +88,50 @@ Claude Desktop 基于 Electron + React，界面语言由三层决定：
 
 **核心问题**：Claude 启动时会向服务器请求账号语言设置，如果服务端语言是英文，会**强制把界面重置为英文**，覆盖本地配置。
 
-**解决方案**：修改前端 JS，打两个补丁：
+**解决方案**：修改前端 JS，打补丁：
 
 1. **硬编码初始语言** — 不再从系统/浏览器语言获取，直接固定为 `"zh-CN"`
 2. **阻止 API 覆盖** — 服务器返回英文 locale 时，强制改为中文
+3. **移除阻断逻辑** — 移除新版 JS 中 `if(!s?.locale)return` 的条件，确保 zh-CN 始终生效
+4. **硬编码 documentElement.lang** — 直接设置 `document.documentElement.lang="zh-CN"`，绕过 Hzt 动态初始化
 
 > 💡 **为什么不直接改 config.json？**  
 > Claude 每次启动都会从服务端拉取语言设置并覆盖本地配置，改 config.json 无效。必须从源头（JS 层面）拦截。
+
+---
+
+## ⚠️ 已知问题与意外情况
+
+### 情况 1：脚本提示"未找到匹配模式"
+
+Claude 可能发布了新版本，JS 内部结构已变更。脚本会尝试匹配多种模式（旧版 `GTt` 变量、新版 `Hzt` 变量），但如果 Claude 彻底重构了语言初始化逻辑（例如换了变量名、改变了函数结构），补丁就会失效。
+
+**解决方法**：
+1. 到 [GitHub Issues](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/issues) 反馈，附上 JS 文件名
+2. 临时方案：手动修改 `patch_js.py`，添加新模式匹配（见下文开发指南）
+
+### 情况 2：Claude 彻底重构 JS 结构
+
+如果 Claude 下次更新时彻底重写了前端代码（例如：换了框架、改了语言初始化流程、使用不同的 i18n 方案），现有补丁可能全部失效。
+
+**如何判断**：
+- 运行 `python3 patch_js.py --check`，如果显示多个补丁均未生效
+- 运行 `bash claude-zh-CN.sh`，多个补丁显示"未找到匹配模式"
+
+**应对策略**：
+- 脚本已内置多版本兼容逻辑，会自动检测 JS 结构变化
+- 如遇完全无法识别的新结构，请在 GitHub 提 Issue
+- 未来计划：开发自动化测试流程，每次 Claude 更新后自动适配
+
+### 情况 3：Homebrew 安装后 `sudo claude-zh` 找不到命令
+
+Homebrew 安装的 cask 需要 sudo 权限来修改 Claude.app 文件。如果提示 `sudo: claude-zh: command not found`，说明 Homebrew 路径配置有问题。
+
+**解决方法**：
+```bash
+# 手动运行汉化脚本
+sudo python3 /opt/homebrew/share/claude-zh/patch_js.py
+```
 
 ---
 
@@ -105,6 +142,7 @@ Claude Desktop 基于 Electron + React，界面语言由三层决定：
 | Claude Desktop macOS | ✅ 已测试 | 主要支持平台 |
 | v1.12603 及类似旧版 | ✅ 支持 | 自动识别旧版 JS 结构（`kEt` 变量） |
 | v2026.06 及类似新版 | ✅ 支持 | 自动识别新版 JS 结构（`GTt` 变量） |
+| v1.14271.0+ (2026-06-19) | ✅ 已适配 | 新增 `Hzt` 变量硬编码 + `documentElement.lang` 修复 |
 | 未来版本 | 🔄 自动适配 | 脚本自动检测 JS 结构，如遇新版本会提示并跳过 |
 
 > ⚠️ **平台说明**：目前仅完整测试了 **macOS** 版本。Windows 和 Linux 版本的 Claude Desktop 架构可能不同，暂时无法保证兼容。欢迎提交 PR 或 Issue 帮助扩展支持！
@@ -123,6 +161,35 @@ bash claude-zh-CN.sh
 脚本会自动检测新版 JS 结构并应用对应补丁，通常 **10 秒内完成**。
 
 > 💡 **未来计划**：正在开发自动版本检测功能，Claude 更新后自动提醒或自动重跑（见 [TODO.md](TODO.md)）。
+
+---
+
+## 🛠 开发指南（应对 Claude 版本变更）
+
+如果你遇到"未找到匹配模式"，可以尝试以下步骤帮助适配：
+
+1. **提供 JS 文件名**：运行 `python3 patch_js.py --check`，记录错误信息中的 JS 文件名（如 `index-CD05FcCU.js`）
+
+2. **查看初始化逻辑**：在终端执行：
+   ```bash
+   grep -oE '.{100}Hzt=.100' \
+     "/Applications/Claude.app/Contents/Resources/ion-dist/assets/v1/你的JS文件名.js"
+   ```
+
+3. **修改 `patch_js.py`**：在 `patch_js()` 函数中添加新的匹配模式：
+   ```python
+   # 补丁 1: 硬编码初始 locale
+   # 添加新的匹配模式
+   new_pattern = '你的新匹配模式'
+   new_replacement = '你的替换值'
+   if new_pattern in content:
+       content = content.replace(new_pattern, new_replacement)
+   ```
+
+4. **反馈给作者**：到 [GitHub Issues](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/issues) 提交问题，附上：
+   - Claude 版本号（`/Applications/Claude.app/Contents/Info.plist` 中的 `CFBundleShortVersionString`）
+   - JS 文件名
+   - 上述命令的输出
 
 ---
 
