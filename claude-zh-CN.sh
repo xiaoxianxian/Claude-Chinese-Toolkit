@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# ============================================================
-# Claude Desktop 简体中文汉化脚本 v2.2
+# ===================================================================
+# Claude Desktop 简体中文汉化脚本 v2.3
 # 适用: Claude Desktop (macOS) — 自动检测版本
-# 用法: bash claude-zh-CN.sh
-# ============================================================
+# 用法: bash claude-zh-CN.sh [--check]
+# ===================================================================
 
 set -euo pipefail
 
@@ -23,9 +23,19 @@ if [[ ! -d "/Applications/Claude.app" ]]; then
     log "  请先安装 Claude Desktop"
     exit 1
 fi
-log "${GREEN}✓ Claude.app 已找到${NC}"
 
-# ── 退出 Claude ─────────────────────────────────────────────────
+# ── --check 模式 ───────────────────────────────────────────────────
+if [[ "${1:-}" == "--check" ]]; then
+    python3 "$SCRIPT_DIR/patch_js.py" --check
+    exit $?
+fi
+
+# ── 显示版本信息 ───────────────────────────────────────────────────
+log "${CYAN}Claude-Chinese-Toolkit v2.3${NC}"
+log "Claude 版本: $(defaults read /Applications/Claude.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null || echo '未知')"
+log ""
+
+# ── 退出 Claude ─────────────────────────────────────────────────────
 if pgrep -x "Claude" > /dev/null 2>&1; then
     log "${YELLOW}→ Claude 正在运行，正在退出...${NC}"
     killall Claude 2>/dev/null || true
