@@ -51,45 +51,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 log_step()  { echo -e "${CYAN}→${NC} $1"; }
 log_header(){ echo -e "\n${BOLD}${CYAN}═══════════════════════════════════════════${NC}"; echo -e "${BOLD}${CYAN}  $1${NC}"; echo -e "${BOLD}${CYAN}═══════════════════════════════════════════${NC}"; }
 
-# ── 解析参数 ────────────────────────────────────────────────────────
-case "${1:-}" in
-    --install)
-        MODE="install"
-        ;;
-    --reinstall)
-        MODE="reinstall"
-        FORCE_REINSTALL=true
-        ;;
-    --uninstall)
-        MODE="uninstall"
-        ;;
-    --uninstall-auto)
-        MODE="uninstall-auto"
-        ;;
-    --check)
-        MODE="check"
-        ;;
-    --help|-h|help)
-        MODE="help"
-        ;;
-    *)
-        # 兼容旧参数
-        for arg in "$@"; do
-            case $arg in
-                --no-ai|--no-ai-interaction) INSTALL_AI=false ;;
-                --auto|--auto-detect) INSTALL_AUTO=true ;;
-                --help|-h|help) MODE="help" ;;
-                --check) MODE="check" ;;
-                *) ;;
-            esac
-        done
-        if [[ "$MODE" == "" ]]; then
-            MODE="install"
-        fi
-        ;;
-esac
-
-# ── 帮助信息 ────────────────────────────────────────────────────────
+# ── 帮助信息（必须在参数解析之前定义，因为 set -u） ────────────────────────────────
 show_help() {
     echo ""
     echo -e "${BOLD}Claude Desktop 简体中文汉化脚本 v${VERSION}${NC}"
@@ -117,6 +79,60 @@ show_help() {
     echo "  sudo bash claude-zh-CN.sh --install"
     echo ""
 }
+
+# ── 解析参数 ────────────────────────────────────────────────────────
+case "${1:-}" in
+    --install)
+        MODE="install"
+        ;;
+    --reinstall)
+        MODE="reinstall"
+        FORCE_REINSTALL=true
+        ;;
+    --uninstall)
+        MODE="uninstall"
+        ;;
+    --uninstall-auto)
+        MODE="uninstall-auto"
+        ;;
+    --check)
+        MODE="check"
+        ;;
+    --help|-h|help)
+        MODE="help"
+        ;;
+    *)
+        # 兼容旧参数
+        UNKNOWN_ARG=""
+        for arg in "$@"; do
+            case $arg in
+                --no-ai|--no-ai-interaction) INSTALL_AI=false ;;
+                --auto|--auto-detect) INSTALL_AUTO=true ;;
+                --help|-h|help) MODE="help" ;;
+                --check) MODE="check" ;;
+                --install) MODE="install" ;;
+                *)
+                    # 不认识的参数：记录第一个遇到的
+                    if [[ -z "$UNKNOWN_ARG" ]]; then
+                        UNKNOWN_ARG="$arg"
+                    fi
+                    ;;
+            esac
+        done
+
+        # 如果有未知参数，优先报错退出
+        if [[ -n "$UNKNOWN_ARG" ]]; then
+            log_error "未知参数: $UNKNOWN_ARG"
+            echo ""
+            show_help
+            exit 1
+        fi
+
+        if [[ "$MODE" == "" ]]; then
+            MODE="install"
+        fi
+        ;;
+esac
 
 # ── 一键安装 ────────────────────────────────────────────────────────
 do_install() {
@@ -149,9 +165,9 @@ do_install() {
     # 3. 临时获取权限并安装
     log_step "安装翻译文件（需要 sudo 权限）..."
 
-    # 备份原文件
+    # 备份原文件（仅在没有 .bak 时才备份）
     if [[ -f "$LANG_FILE" ]] && { [[ "$FORCE_REINSTALL" == true ]] || [[ ! -f "$LANG_FILE.bak" ]]; }; then
-        cp "$LANG_FILE" "$LANG_FILE.bak" 2>/dev/null || true
+        cp "$LANG_FILE" "$LANG_FILE.bak" 2>/dev/null && log_info "已备份原翻译文件" || log_warn "备份失败，跳过备份"
     fi
 
     # 复制翻译文件（后端 + 前端）
@@ -165,7 +181,11 @@ do_install() {
 
     # 4. 应用汉化补丁
     log_step "应用汉化补丁..."
-    sudo python3 "$SCRIPT_DIR/patch_js.py" 2>&1 | grep -v "^$" || log_info "汉化补丁已应用"
+    if sudo python3 "$SCRIPT_DIR/patch_js.py" 2>&1; then
+        log_info "汉化补丁应用成功"
+    else
+        log_warn "汉化补丁应用失败（请查看上方输出）"
+    fi
 
     # 5. 安装 system_prompt.txt（AI 交互中文）
     if [[ "$INSTALL_AI" == true ]]; then
@@ -207,10 +227,7 @@ PROMPT_EOF
     fi
 
     # 6. 安装开机自动检测
-    if [[ "$INSTALL_AUTO" == true || "$INSTALL_AUTO" == false ]]; then
-        # 默认安装自动检测（用户可以用 --uninstall-auto 单独卸载）
-        install_auto_launch
-    fi
+    install_auto_launch
 
     # 7. 创建安装清单
     create_inventory
@@ -220,9 +237,7 @@ PROMPT_EOF
     if [[ "$INSTALL_AI" == true ]]; then
         log_info "AI 交互中文已启用"
     fi
-    if [[ "$INSTALL_AUTO" == true ]]; then
-        log_info "开机自动检测已启用"
-    fi
+    log_info "开机自动检测已启用"
     echo ""
     log_info "重新打开 Claude，界面将显示为简体中文"
     if [[ "$INSTALL_AI" == true ]]; then
@@ -241,24 +256,48 @@ install_auto_launch() {
     # 创建修复后的 autolaunch 脚本（避免依赖 sudo）
     cat > "$fixed_script" << 'FIXED_EOF'
 #!/bin/bash
-# Claude Desktop 开机自动汉化脚本（修复版）
+# Claude Desktop 开机自动汉化脚本
 # 由 com.claude-zh-CN.auto-launch.plist 调用
 # 此脚本在用户权限下运行，不使用 sudo
 
 sleep 30  # 等待 30 秒，确保系统就绪
 
-PATCH_SCRIPT="/Users/xiaota/WorkBuddy/Claude-Chinese-Toolkit/patch_js.py"
-AUTO_SCRIPT="/Users/xiaota/WorkBuddy/Claude-Chinese-Toolkit/claude-zh-autolaunch.sh"
+# 自动搜索 patch_js.py 的位置
+# 优先级：安装清单 > 常见目录 > 系统路径
+PATCH_SCRIPT=""
 
-# 优先使用项目目录下的脚本，否则使用用户目录下的
-if [[ -f "$PATCH_SCRIPT" ]]; then
-    CHECK_OUTPUT=$("$PATCH_SCRIPT" --check 2>&1)
-elif [[ -f "$AUTO_SCRIPT" ]]; then
-    CHECK_OUTPUT=$("$AUTO_SCRIPT" --check 2>&1)
-else
+# 方式1: 从安装清单位置查找（如果清单存在）
+if [[ -f "$INVENTORY_FILE" ]]; then
+    # 注意：inventory 是由 install_auto_launch 之后创建的，这里可能还不存在
+    :
+fi
+
+# 方式2: 遍历常见安装位置
+for candidate_dir in \
+    "$HOME/WorkBuddy/Claude-Chinese-Toolkit" \
+    "$HOME/Projects/Claude-Chinese-Toolkit" \
+    ~/Claude-Chinese-Toolkit \
+    "$HOME/.local/share/claude-zh" \
+    "/opt/homebrew/share/claude-zh" \
+    "/usr/local/share/claude-zh" \
+    "/Applications/Claude-Chinese-Toolkit"; do
+    if [[ -f "${candidate_dir}/patch_js.py" ]]; then
+        PATCH_SCRIPT="${candidate_dir}/patch_js.py"
+        break
+    fi
+done
+
+if [[ ! -f "${PATCH_SCRIPT:-}" ]]; then
+    PATCH_SCRIPT=""
+fi
+
+# 如果没找到，就退出
+if [[ -z "$PATCH_SCRIPT" ]]; then
     echo "[$(date)] 补丁脚本不存在，跳过自动检测" >> /tmp/claude-zh-autolaunch.log
     exit 0
 fi
+
+CHECK_OUTPUT=$("$PATCH_SCRIPT" --check 2>&1)
 
 if echo "$CHECK_OUTPUT" | grep -q "需要重新汉化"; then
     echo "[$(date)] 检测到汉化失效，正在修复..." >> /tmp/claude-zh-autolaunch.log
@@ -270,6 +309,7 @@ FIXED_EOF
     chmod +x "$fixed_script"
 
     # 创建 LaunchAgent plist
+    AUTOLAUNCH_SCRIPT_PATH="${HOME}/Library/Application Support/Claude/autolaunch.sh"
     cat > "$LAUNCH_AGENT_PLIST" << PLIST_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -282,7 +322,7 @@ FIXED_EOF
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>sleep 30 && /Users/xiaota/Library/Application\ Support/Claude/autolaunch.sh</string>
+        <string>sleep 30 && ${AUTOLAUNCH_SCRIPT_PATH}</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -373,29 +413,35 @@ do_uninstall() {
     rm -f "$HOME/Library/Application Support/Claude/autolaunch.sh"
     rm -f "$INVENTORY_FILE"
 
-    # 6. 恢复 config.json 中的 locale
+    # 6. 恢复 config.json 中的 locale（使用独立 Python 脚本以避免注入风险）
     if [[ -f "$CONFIG_FILE" ]]; then
-        local tmp_config="${CONFIG_FILE}.tmp"
-        if python3 -c "
-import json, sys
+        local tmp_config="${CONFIG_FILE}.tmp.$$"
+        local python_fix_locale='
+import json, sys, os
+config_file = sys.argv[1]
+tmp_file = sys.argv[2]
 try:
-    with open('$CONFIG_FILE', 'r') as f:
+    with open(config_file, "r") as f:
         config = json.load(f)
-    if 'locale' in config:
-        del config['locale']
-    with open('$tmp_config', 'w') as f:
+    if "locale" in config:
+        del config["locale"]
+    with open(tmp_file, "w") as f:
         json.dump(config, f, indent=2)
-    print('yes')
-except:
-    print('no')
-" 2>/dev/null; then
-            mv "$tmp_config" "$CONFIG_FILE" 2>/dev/null || true
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+'
+        if python3 -c "$python_fix_locale" "$CONFIG_FILE" "$tmp_config" 2>/dev/null; then
+            mv "$tmp_config" "$CONFIG_FILE" 2>/dev/null || rm -f "$tmp_config"
+        else
+            rm -f "$tmp_config" 2>/dev/null || true
         fi
     fi
 
     log_header "✓ 卸载完成！"
     log_info "所有汉化痕迹已清理"
     log_info "重新打开 Claude，界面将恢复为英文"
+    log_info "AI 交互也将恢复为默认语言"
 }
 
 # ── 一键重装 ────────────────────────────────────────────────────────
@@ -489,6 +535,7 @@ case "$MODE" in
         ;;
     help)
         show_help
+        exit 0
         ;;
     *)
         log_error "未知模式: $MODE"
