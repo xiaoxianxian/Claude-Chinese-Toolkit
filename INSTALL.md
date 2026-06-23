@@ -1,155 +1,90 @@
-# 安装说明
+# Claude-Chinese-Toolkit 安装指南
 
-> 🍺 **有 Homebrew？** 直接看 [Homebrew 安装说明](HOMEBREW.md) — 一行命令搞定！
+本指南介绍如何通过不同方式安装 Claude Desktop 简体中文汉化。
 
----
+## 系统要求
 
-## 方式一：下载 Release 包（推荐，无需 git）
+- macOS 12.0+ (Big Sur 及以上)
+- Claude Desktop 1.14271.0+ (已测试)
+- Python 3.9+
+- git (可选，用于从源码安装)
 
-> 适合不想装 Homebrew 或 git 的用户。
-
-1. 打开 [Release 页面](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/releases/latest)
-2. 在 **Assets** 下方找到 `Claude-Chinese-Toolkit-v2.3.zip`，点击下载
-3. 解压 ZIP，得到完整工具包
-
-> 💡 Release 包是打包好的稳定版本，不需要安装 git，解压即用。
-
----
-
-## 方式二：用 Git 克隆
+## 方式一：Homebrew 安装（推荐新手）
 
 ```bash
+# 添加 tap
+brew tap xiaoxianxian/claude-zh
+
+# 安装
+brew install claude-zh
+
+# 运行汉化
+claude-zh
+```
+
+**优点**：自动处理依赖，一键安装/卸载/更新
+**缺点**：仅支持 Homebrew 用户
+
+## 方式二：本地脚本安装（适合开发者）
+
+```bash
+# 克隆仓库
 git clone https://github.com/xiaoxianxian/Claude-Chinese-Toolkit.git
 cd Claude-Chinese-Toolkit
-bash claude-zh-CN.sh
+
+# 运行安装
+sudo bash claude-zh-CN.sh --install
+
+# 如需卸载
+sudo bash claude-zh-CN.sh --uninstall
 ```
 
----
-
-## 方式三：直接下载源码 ZIP
-
-1. 打开 https://github.com/xiaoxianxian/Claude-Chinese-Toolkit
-2. 点击绿色的 **Code** 按钮 → **Download ZIP**
-3. 解压下载的 ZIP 文件
-
----
-
-## 运行汉化脚本
-
-打开**终端**（Terminal），执行：
+## 方式三：Download ZIP
 
 ```bash
-cd /path/to/Claude-Chinese-Toolkit
-bash claude-zh-CN.sh
+# 下载 ZIP
+curl -LO https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/archive/refs/heads/main.zip
+unzip main.zip
+cd Claude-Chinese-Toolkit-main
+
+# 运行安装
+sudo bash claude-zh-CN.sh --install
 ```
 
-> 💡 把 `/path/to` 换成你实际解压的路径，比如：
-> `cd ~/Downloads/Claude-Chinese-Toolkit-v2.3`
+## 安装后的功能
 
-脚本会自动：
-1. 检测你的 Claude 版本（新旧版都能处理）
-2. 备份原始文件（存在 `backups/` 目录）
-3. 复制中文翻译文件
-4. 修改前端 JS，锁定界面语言为中文
+安装完成后你将获得：
 
-看到 `✅ 汉化完成！` 就成功了。
-
----
-
-## 重启 Claude
-
-完全退出 Claude（**Cmd+Q**，不是只是关闭窗口），然后重新打开。
-
-界面应该已经是中文了 🎉
-
----
+1. **界面汉化**：16,000+ 条中文字符串，覆盖 Claude 整个界面
+2. **AI 交互中文**：Chat / Cowork / Code 模式下全程中文交流
+3. **开机自动检测**：每次开机自动修复汉化失效
 
 ## 常见问题
 
-### Q：运行脚本时报权限错误？
-**A：** 脚本需要修改 `/Applications/Claude.app` 里的文件，如果提示 `Permission denied`，用 `sudo` 运行：
+### Q: Claude 更新后变回英文怎么办？
+
+运行：
 ```bash
-sudo bash claude-zh-CN.sh
+sudo bash claude-zh-CN.sh --reinstall
 ```
 
-### Q：Claude 更新后又变回英文了？
-**A：** Claude 自动更新后 JS 文件名会变，重新运行一次脚本就好：
+### Q: 只想汉化界面，不想让 AI 用中文？
+
+运行：
 ```bash
-cd /path/to/Claude-Chinese-Toolkit
-bash claude-zh-CN.sh
+sudo bash claude-zh-CN.sh --install --no-ai
 ```
-如果用的是 Homebrew 安装：
+
+### Q: 如何彻底卸载？
+
+运行：
 ```bash
-sudo claude-zh
+sudo bash claude-zh-CN.sh --uninstall
 ```
 
-### Q：想恢复英文界面？
-**A：** 脚本会自动备份原始文件，恢复方法：
+### Q: 如何检查汉化状态？
+
+运行：
 ```bash
-# 1. 查看备份文件
-ls /path/to/Claude-Chinese-Toolkit/backups/
-
-# 2. 还原 JS 文件（文件名以 index- 开头）
-sudo cp backups/index-XXXXXX.js.YYYYMMDD_HHMMSS \
-  "/Applications/Claude.app/Contents/Resources/ion-dist/assets/v1/index-XXXXXX.js"
-
-# 3. 删除中文翻译
-sudo rm "/Applications/Claude.app/Contents/Resources/zh-CN.json"
-sudo rm "/Applications/Claude.app/Contents/Resources/ion-dist/i18n/zh-CN.json"
-
-# 4. 重启 Claude
+bash claude-zh-CN.sh --check
 ```
-最简单的方法：重新安装 Claude Desktop，会自动恢复原始文件。
-
-### Q：支持 Windows 吗？
-**A：** 目前只支持 macOS 版 Claude Desktop。Windows 版原理类似，但需要不同的脚本。
-
-### Q：脚本安全吗？
-**A：** 脚本只做三件事：
-1. 备份原始文件
-2. 复制翻译文件（JSON）
-3. 修改前端 JS 中的 locale 变量（硬编码为 `zh-CN`）
-
-不会收集任何数据，不会访问网络。源码完全开放，可以自己审查。
-
----
-
-## 工作原理（技术向）
-
-Claude Desktop 基于 Electron 构建，有两层翻译机制：
-- **后端翻译：** `/Applications/Claude.app/Contents/Resources/zh-CN.json`
-- **前端翻译：** `/Applications/Claude.app/Contents/Resources/ion-dist/i18n/zh-CN.json`
-
-根本问题：Claude 启动时会从 API 获取 locale 并覆盖本地设置，导致界面恢复英文。
-
-解决方案：修改前端 JS，硬编码 `locale = "zh-CN"` 并阻止 API 覆盖。
-
----
-
-## 文件说明
-
-```
-Claude-Chinese-Toolkit/
-├── claude-zh-CN.sh        # 一键汉化脚本（入口）
-├── patch_js.py             # JS 补丁脚本（自动调用）
-├── language-pack/          # 中文翻译文件
-│   ├── zh-CN.json                 # 前端翻译（~1MB，16000+ 条）
-│   ├── desktop-shell-zh-CN.json  # 后端翻译（~21KB，420+ 条）
-│   ├── Localizable.strings       # macOS 本地化字符串
-│   └── zh-CN.overrides.json    # 翻译覆盖规则
-├── backups/                # 自动备份目录（运行脚本后生成）
-└── README.md              # 项目说明
-```
-
----
-
-## 反馈与贡献
-
-- **Bug 反馈：** https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/issues
-- **Pull Request：** 欢迎提交改进！
-
----
-
-## 免责声明
-
-本工具仅供学习交流使用，修改第三方软件可能产生风险，请自行备份数据。作者不对使用本工具导致的任何问题负责。
