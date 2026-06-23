@@ -1,4 +1,4 @@
-# 🇨🇳 Claude Desktop 简体中文汉化工具
+# 🇨🇳 Claude Desktop 简体中文汉化工具 — 完整使用手册
 
 <p align="center">
   <a href="https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/releases/latest">
@@ -7,34 +7,117 @@
   <a href="https://github.com/xiaoxianxian/Claude-Chinese-Toolkit">
     <img src="https://img.shields.io/github/stars/xiaoxianxian/Claude-Chinese-Toolkit?style=social">
   </a>
-  <a href="https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/xiaoxianxian/Claude-Chinese-Toolkit">
-  </a>
-  <a href="https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/issues">
-    <img src="https://img.shields.io/github/issues/xiaoxianxian/Claude-Chinese-Toolkit">
-  </a>
-</p>
-
-<p align="center">
-  <b>一键将 Claude Desktop（macOS）界面汉化为简体中文</b><br>
-  自动检测版本 · 支持新版 · 完全开源
 </p>
 
 ---
 
-## ✨ 效果预览
+## 📋 目录
 
-> 汉化前：`New Chat` `Send` `Settings` `Upgrade`  
-> 汉化后：`新建对话` `发送` `设置` `升级`
-
-全界面覆盖：菜单栏、侧边栏、对话框、设置页、快捷键提示……  
-约 **16,000 条**界面字符串，覆盖 Claude Desktop 完整界面。
+1. [解决的问题](#1-解决的问题)
+2. [工作原理](#2-工作原理)
+3. [与其他方案的比较](#3-与其他方案的比较)
+4. [安装方式](#4-安装方式)
+5. [使用指南](#5-使用指南)
+6. [卸载/还原](#6-卸载还原)
+7. [常见问题](#7-常见问题)
+8. [技术细节](#8-技术细节)
 
 ---
 
-## 🚀 快速开始
+## 1. 解决的问题
 
-### 方式一：Homebrew 安装（推荐，支持自动更新）
+### 1.1 问题背景
+
+Claude Desktop 官方目前**不提供简体中文界面**。即使你的 macOS 系统是中文，Claude 也会显示英文界面。这是因为：
+
+1. **服务端语言覆盖** — Claude 启动时会向 Anthropic 服务器请求账号语言设置，如果账号语言是英文，服务器会返回 `en-US`，**强制将界面重置为英文**。
+2. **config.json 无效** — 传统的修改 `config.json` 中 `locale` 字段的方法已被证明**无效**，因为 Claude 每次启动都会从服务端拉取语言设置并覆盖本地配置。
+3. **每次更新后失效** — Claude 版本更新后会替换前端 JS 文件，之前的汉化补丁失效，界面变回英文。
+
+### 1.2 我们解决了什么
+
+本工具一次性解决三个层面的问题：
+
+| 层面 | 问题 | 解决方案 |
+|------|------|----------|
+| **界面文字** | 菜单、按钮、对话框等界面元素全是英文 | 注入 16,000+ 条中文翻译 |
+| **语言判断** | Claude 强制使用英文 locale | 修改 JS 文件，硬编码 zh-CN |
+| **AI 交互** | AI 回应全是英文，不符合中文习惯 | 写入系统提示词，强制 AI 使用中文 |
+
+---
+
+## 2. 工作原理
+
+### 2.1 界面汉化原理
+
+Claude Desktop 基于 Electron + React 构建，界面语言由三层决定：
+
+```
+┌─────────────────────────────────────────────────────┐
+│  第一层：系统级 UI                                     │
+│  文件: Resources/zh-CN.json                          │
+│  作用: 菜单、对话框、系统托盘等 Electron 原生 UI       │
+├─────────────────────────────────────────────────────┤
+│  第二层：前端 SPA                                     │
+│  文件: ion-dist/i18n/zh-CN.json                      │
+│  作用: 主界面所有文本（~1MB，~16,000 条字符串）        │
+├─────────────────────────────────────────────────────┤
+│  第三层：语言判断                                     │
+│  文件: ion-dist/assets/v1/index-*.js                 │
+│  作用: 决定使用哪种语言                               │
+└─────────────────────────────────────────────────────┘
+```
+
+**补丁过程：**
+
+1. **注入翻译文件** — 复制中文翻译文件到 `Resources/` 和 `ion-dist/i18n/`
+2. **硬编码初始语言** — 修改 JS 中语言初始化代码，不再从系统/浏览器语言获取
+3. **阻止 API 覆盖** — 拦截服务器返回的英文 locale，强制改为中文
+4. **移除阻断逻辑** — 新版 JS 中有 `if(!s?.locale)return` 的条件，会导致 zh-CN 设置被跳过，补丁会移除这个条件
+
+### 2.2 AI 交互中文原理
+
+Claude Desktop 支持 `system_prompt.txt` 配置文件（位于 `~/Library/Application Support/Claude/`），该文件中的指令会在所有交互模式中生效：
+
+- **Chat 模式** — 日常对话、提问回答
+- **Cowork 模式** — 协同工作、文件编辑
+- **Code 模式** — 代码生成、调试、审查
+
+系统提示词会告诉 Claude "始终使用简体中文交流"，这会覆盖默认的英文交互。
+
+---
+
+## 3. 与其他方案的比较
+
+### 3.1 主流方案对比
+
+| 方案 | 原理 | 优点 | 缺点 |
+|------|------|------|------|
+| **本工具（JS 补丁）** | 直接修改 Claude.app 内部 JS 文件 | ✅ 效果稳定<br>✅ 不受服务端控制<br>✅ 覆盖完整界面 | ⚠️ 每次 Claude 更新需重新打补丁<br>⚠️ 需要 sudo 权限<br>⚠️ 非官方修改 |
+| **修改 config.json** | 修改 `~/Library/Application Support/Claude/config.json` | ✅ 操作简单 | ❌ 已被证明**完全无效**（服务端覆盖） |
+| **修改系统语言** | 将 macOS 系统语言设为中文 | ✅ 简单 | ❌ 影响所有应用<br>❌ 不适用于不想切换系统的用户<br>❌ Claude 仍会显示英文 |
+| **第三方客户端** | 使用其他 GUI 封装 | ✅ 可能有中文 | ❌ 功能可能落后<br>❌ 安全性未知<br>❌ 失去官方功能更新 |
+| **API + 自行封装** | 使用 Claude API + 自建前端 | ✅ 完全可控 | ❌ 技术门槛高<br>❌ 需要 API Key<br>❌ 维护成本高 |
+
+### 3.2 本方案的独特优势
+
+1. **从源头解决** — 在 JS 层面硬编码 zh-CN，服务器返回的英文 locale 会被拦截
+2. **版本自适应** — 脚本自动检测不同版本的 JS 结构，支持新旧两种补丁逻辑
+3. **双重保障** — 既注入翻译文件，又硬编码语言，即使其中一层失效仍有保障
+4. **安全透明** — 开源脚本，每一步都可审计，不会悄悄修改不该修改的地方
+5. **一键复原** — 自动备份原始文件，随时可还原
+
+### 3.3 已知局限
+
+1. **需要重新打补丁** — 每次 Claude 版本更新后，JS 文件被替换，需重新运行脚本（约 10 秒）
+2. **仅支持 macOS** — 目前仅完整测试 macOS 版本，Windows/Linux 暂不支持
+3. **翻译可能滞后** — 新功能上线后，翻译文件可能缺少新字符串的中文翻译
+
+---
+
+## 4. 安装方式
+
+### 方式一：Homebrew 安装（推荐）
 
 ```bash
 # 1. 添加 Tap（首次）
@@ -45,24 +128,23 @@ brew install claude-zh
 
 # 3. 运行汉化
 sudo claude-zh
+```
 
-# 以后 Claude 更新后，只需：
+以后 Claude 更新后，只需：
+```bash
 brew upgrade claude-zh
 sudo claude-zh
 ```
 
-> ⚠️ Homebrew Tap 仓库需先创建（见 [Homebrew 安装说明](HOMEBREW.md)）
-
-### 方式二：下载 Release 包（无需 git）
+### 方式二：下载 Release 包
 
 1. 打开 [Releases 页面](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/releases/latest)
-2. 下载 `Claude-Chinese-Toolkit-v2.3.zip`
+2. 下载 `Claude-Chinese-Toolkit-v2.4.zip`
 3. 解压，在终端运行：
    ```bash
-   cd ~/Downloads/Claude-Chinese-Toolkit-v2.3
+   cd ~/Downloads/Claude-Chinese-Toolkit-v2.4
    bash claude-zh-CN.sh
    ```
-4. **Cmd+Q 完全退出 Claude**，重新打开 → 中文界面 ✅
 
 ### 方式三：用 Git 克隆
 
@@ -72,195 +154,185 @@ cd Claude-Chinese-Toolkit
 bash claude-zh-CN.sh
 ```
 
-> 📖 完整安装说明（含截图）→ [INSTALL.md](INSTALL.md)
-
 ---
 
-## 🔧 工作原理
+## 5. 使用指南
 
-Claude Desktop 基于 Electron + React，界面语言由三层决定：
+### 5.1 首次使用
 
-| 层面 | 文件 | 作用 |
-|------|------|------|
-| 系统级 UI | `Resources/zh-CN.json` | 菜单、对话框、系统托盘 |
-| 前端 SPA | `ion-dist/i18n/zh-CN.json` | 主界面所有文本（~1MB，~16,000 条） |
-| 语言判断 | `ion-dist/assets/v1/index-*.js` | 决定使用哪种语言 |
+1. **完全退出 Claude** — 如果 Claude 正在运行，先 Cmd+Q 完全退出
+2. **运行脚本** — 按上述任一方式安装后，运行汉化脚本
+3. **按提示选择** — 脚本会提示是否安装 AI 中文交互提示词和开机自动汉化（推荐选 1）
+4. **重新打开 Claude** — 此时界面应为简体中文，AI 交互也为中文
 
-**核心问题**：Claude 启动时会向服务器请求账号语言设置，如果服务端语言是英文，会**强制把界面重置为英文**，覆盖本地配置。
+### 5.2 开机自动汉化
 
-**解决方案**：修改前端 JS，打补丁：
+**v2.5 新增：开机自动检测与修复汉化失效**
 
-1. **硬编码初始语言** — 不再从系统/浏览器语言获取，直接固定为 `"zh-CN"`
-2. **阻止 API 覆盖** — 服务器返回英文 locale 时，强制改为中文
-3. **移除阻断逻辑** — 移除新版 JS 中 `if(!s?.locale)return` 的条件，确保 zh-CN 始终生效
-4. **硬编码 documentElement.lang** — 直接设置 `document.documentElement.lang="zh-CN"`，绕过 Hzt 动态初始化
+安装完成后，系统会自动注册一个开机启动项（LaunchAgent），工作流程：
 
-> 💡 **为什么不直接改 config.json？**  
-> Claude 每次启动都会从服务端拉取语言设置并覆盖本地配置，改 config.json 无效。必须从源头（JS 层面）拦截。
+```
+开机 → 等待 30 秒 → 检测汉化状态 → 如果失效则自动修复 → 完成
+```
 
----
+**特点：**
+- ✅ 零配置：安装后自动启用，无需手动设置
+- ✅ 智能检测：仅在汉化失效时才重新打补丁（节省时间）
+- ✅ 静默运行：后台执行，不影响正常开机
+- ✅ 日志可查：`/tmp/claude-zh-autolaunch.log`
 
-## ⚠️ 已知问题与意外情况
-
-### 情况 1：脚本提示"未找到匹配模式"
-
-Claude 可能发布了新版本，JS 内部结构已变更。脚本会尝试匹配多种模式（旧版 `GTt` 变量、新版 `Hzt` 变量），但如果 Claude 彻底重构了语言初始化逻辑（例如换了变量名、改变了函数结构），补丁就会失效。
-
-**解决方法**：
-1. 到 [GitHub Issues](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/issues) 反馈，附上 JS 文件名
-2. 临时方案：手动修改 `patch_js.py`，添加新模式匹配（见下文开发指南）
-
-### 情况 2：Claude 彻底重构 JS 结构
-
-如果 Claude 下次更新时彻底重写了前端代码（例如：换了框架、改了语言初始化流程、使用不同的 i18n 方案），现有补丁可能全部失效。
-
-**如何判断**：
-- 运行 `python3 patch_js.py --check`，如果显示多个补丁均未生效
-- 运行 `bash claude-zh-CN.sh`，多个补丁显示"未找到匹配模式"
-
-**应对策略**：
-- 脚本已内置多版本兼容逻辑，会自动检测 JS 结构变化
-- 如遇完全无法识别的新结构，请在 GitHub 提 Issue
-- 未来计划：开发自动化测试流程，每次 Claude 更新后自动适配
-
-### 情况 3：Homebrew 安装后 `sudo claude-zh` 找不到命令
-
-Homebrew 安装的 cask 需要 sudo 权限来修改 Claude.app 文件。如果提示 `sudo: claude-zh: command not found`，说明 Homebrew 路径配置有问题。
-
-**解决方法**：
+**如何停用自动汉化：**
 ```bash
-# 手动运行汉化脚本
+bash claude-zh-CN.sh --uninstall-auto
+```
+
+> ⚠️ **注意**：Claude 版本更新后，JS 文件可能被替换。如果自动检测未生效，可手动运行 `bash claude-zh-CN.sh` 重新汉化。
+
+### 5.2 Claude 更新后/重启后
+
+**重要说明：** 汉化补丁**不会**随系统启动自动运行。每次以下情况时需重新运行：
+
+1. **每次开机后打开 Claude** — 如果之前汉化未生效，运行一次脚本
+2. **每次 Claude 自动更新** — JS 文件被替换，汉化失效
+3. **每次检测到"需要重新汉化"** — 运行 `python3 patch_js.py --check`
+
+**快速修复：**
+```bash
+# 检查汉化状态
+python3 patch_js.py --check
+
+# 重新汉化（约 10 秒完成）
+bash claude-zh-CN.sh
+```
+
+> 💡 **未来计划**：正在开发自动检测功能，在开机或 Claude 更新后自动提醒或自动重跑。
+
+### 5.3 检查汉化状态
+
+```bash
+python3 patch_js.py --check
+```
+
+输出示例：
+```
+── 汉化状态 ─────────────────────────────────────────
+  Claude 版本:  1.14271.0
+  JS 文件:      index-CD05FcCU.js
+  上次汉化:    2026-06-19 12:37:34
+
+✓ 汉化状态正常
+```
+
+如果显示"需要重新汉化"，请运行完整脚本重新打补丁。
+
+### 5.4 仅汉化界面（不需要 AI 中文）
+
+```bash
+bash claude-zh-CN.sh --no-system
+```
+
+这会跳过系统提示词的安装，仅汉化界面文字。
+
+---
+
+## 6. 卸载/还原
+
+### 6.1 完整卸载
+
+```bash
+# 1. 还原 JS 文件（使用备份）
+sudo cp backups/index-XXXXXX.js.YYYYMMDD_HHMMSS \
+  "/Applications/Claude.app/Contents/Resources/ion-dist/assets/v1/index-XXXXXX.js"
+
+# 2. 删除中文翻译
+sudo rm "/Applications/Claude.app/Contents/Resources/zh-CN.json"
+sudo rm "/Applications/Claude.app/Contents/Resources/ion-dist/i18n/zh-CN.json"
+
+# 3. 删除系统提示词
+rm ~/Library/Application\ Support/Claude/system_prompt.txt
+
+# 4. 重启 Claude
+```
+
+### 6.2 仅禁用 AI 中文交互
+
+```bash
+rm ~/Library/Application\ Support/Claude/system_prompt.txt
+```
+
+### 6.3 Homebrew 卸载
+
+```bash
+brew uninstall claude-zh
+```
+
+---
+
+## 7. 常见问题
+
+### Q: 如何确认汉化成功了？
+
+运行 `python3 patch_js.py --check`，如果显示"✓ 汉化状态正常"，说明汉化生效。
+
+### Q: Claude 更新后每次都手动运行脚本吗？
+
+目前是的。未来计划开发自动检测功能，在 Claude 更新后自动提醒或自动重跑。
+
+### Q: 汉化会影响 Claude 的功能吗？
+
+不会。所有修改仅涉及界面文字和语言判断逻辑，不影响 AI 模型能力和任何功能。
+
+### Q: 翻译不完整/有错误？
+
+翻译文件基于 Claude 官方英文界面提取，部分新版本新增字符串可能暂无翻译。欢迎提交 PR 完善翻译！参见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+### Q: 脚本提示"未找到匹配模式"？
+
+Claude 可能发布了新版本，JS 内部结构已变更。请到 [GitHub Issues](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/issues) 反馈，附上 JS 文件名。
+
+### Q: Homebrew 安装后 `sudo claude-zh` 找不到命令？
+
+Homebrew 安装的 cask 需要 sudo 权限来修改 Claude.app 文件。如果提示 `sudo: claude-zh: command not found`，请手动运行：
+
+```bash
 sudo python3 /opt/homebrew/share/claude-zh/patch_js.py
 ```
 
 ---
 
-## 📦 适用版本
+## 8. 技术细节
+
+### 8.1 支持的 Claude 版本
 
 | 版本 | 状态 | 说明 |
 |------|------|------|
-| Claude Desktop macOS | ✅ 已测试 | 主要支持平台 |
 | v1.12603 及类似旧版 | ✅ 支持 | 自动识别旧版 JS 结构（`kEt` 变量） |
 | v2026.06 及类似新版 | ✅ 支持 | 自动识别新版 JS 结构（`GTt` 变量） |
 | v1.14271.0+ (2026-06-19) | ✅ 已适配 | 新增 `Hzt` 变量硬编码 + `documentElement.lang` 修复 |
 | 未来版本 | 🔄 自动适配 | 脚本自动检测 JS 结构，如遇新版本会提示并跳过 |
 
-> ⚠️ **平台说明**：目前仅完整测试了 **macOS** 版本。Windows 和 Linux 版本的 Claude Desktop 架构可能不同，暂时无法保证兼容。欢迎提交 PR 或 Issue 帮助扩展支持！
+### 8.2 已知局限
 
----
+1. **首次需手动运行** — 首次安装汉化后，需手动运行一次脚本。之后每次开机自动检测修复。Claude 版本更新后可能需额外运行一次。
+2. **仅支持 macOS** — 目前仅完整测试 macOS 版本，Windows/Linux 暂不支持。
+3. **翻译可能滞后** — 新功能上线后，翻译文件可能缺少新字符串的中文翻译。
+4. **自动检测频率** — 当前仅在开机后检测一次（30 秒后），如需更频繁检测可自行设置 cron 任务。
 
-## 🔄 Claude 更新后怎么办？
+### 8.2 已知局限
 
-Claude 每次自动更新后，JS 文件会被重置为英文版，**界面会变回英文**，这是正常现象。
+1. **不会自动启动** — 汉化补丁不是开机自启程序，每次开机后需重新运行脚本（约 10 秒）。Claude 每次更新后 JS 文件被替换，也必须重新运行脚本。
+2. **仅支持 macOS** — 目前仅完整测试 macOS 版本，Windows/Linux 暂不支持。
+3. **翻译可能滞后** — 新功能上线后，翻译文件可能缺少新字符串的中文翻译。
 
-**解决方法**：重新运行一次脚本即可：
-```bash
-bash claude-zh-CN.sh
-```
+### 8.3 平台说明
 
-脚本会自动检测新版 JS 结构并应用对应补丁，通常 **10 秒内完成**。
+目前仅完整测试了 **macOS** 版本。Windows 和 Linux 版本的 Claude Desktop 架构可能不同，暂时无法保证兼容。
 
-> 💡 **未来计划**：正在开发自动版本检测功能，Claude 更新后自动提醒或自动重跑（见 [TODO.md](TODO.md)）。
+### 8.4 注意事项
 
----
-
-## 🛠 开发指南（应对 Claude 版本变更）
-
-如果你遇到"未找到匹配模式"，可以尝试以下步骤帮助适配：
-
-1. **提供 JS 文件名**：运行 `python3 patch_js.py --check`，记录错误信息中的 JS 文件名（如 `index-CD05FcCU.js`）
-
-2. **查看初始化逻辑**：在终端执行：
-   ```bash
-   grep -oE '.{100}Hzt=.100' \
-     "/Applications/Claude.app/Contents/Resources/ion-dist/assets/v1/你的JS文件名.js"
-   ```
-
-3. **修改 `patch_js.py`**：在 `patch_js()` 函数中添加新的匹配模式：
-   ```python
-   # 补丁 1: 硬编码初始 locale
-   # 添加新的匹配模式
-   new_pattern = '你的新匹配模式'
-   new_replacement = '你的替换值'
-   if new_pattern in content:
-       content = content.replace(new_pattern, new_replacement)
-   ```
-
-4. **反馈给作者**：到 [GitHub Issues](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/issues) 提交问题，附上：
-   - Claude 版本号（`/Applications/Claude.app/Contents/Info.plist` 中的 `CFBundleShortVersionString`）
-   - JS 文件名
-   - 上述命令的输出
-
----
-
-## 📁 文件结构
-
-```
-Claude-Chinese-Toolkit/
-├── INSTALL.md                # 详细安装说明（新手必读）
-├── README.md                 # 本文件
-├── claude-zh-CN.sh         # 一键汉化脚本（bash 入口）
-├── patch_js.py              # JS 补丁脚本（自动检测版本）
-├── TRANSLATION_STATUS.md    # 翻译进度追踪（社区贡献入口）
-├── CONTRIBUTING.md          # 贡献指南（如何参与翻译/开发）
-└── language-pack/           # 中文翻译文件
-    ├── zh-CN.json                 # 前端翻译（~1MB，~16,000 条）
-    ├── desktop-shell-zh-CN.json   # 后端/桌面端翻译
-    ├── Localizable.strings        # macOS 本地化字符串
-    └── zh-CN.overrides.json     # 翻译覆盖规则
-```
-
----
-
-## ❓ 常见问题
-
-<details>
-<summary><b>Q: Claude 更新后变回英文了？</b></summary>
-
-完全退出 Claude（Cmd+Q），重新运行：
-```bash
-bash claude-zh-CN.sh
-```
-脚本会自动识别新版本并应用补丁。
-</details>
-
-<details>
-<summary><b>Q: 如何还原/卸载？</b></summary>
-
-脚本运行时自动创建备份（`backups/` 目录）。还原方法：
-
-```bash
-# 1. 找到备份文件（ls backups/ 查看）
-# 2. 还原 JS 文件（文件名以 index- 开头）
-sudo cp backups/index-XXXXXX.js.YYYYMMDD_HHMMSS \
-  "/Applications/Claude.app/Contents/Resources/ion-dist/assets/v1/index-XXXXXX.js"
-
-# 3. 删除中文翻译
-sudo rm "/Applications/Claude.app/Contents/Resources/zh-CN.json"
-sudo rm "/Applications/Claude.app/Contents/Resources/ion-dist/i18n/zh-CN.json"
-
-# 4. 重启 Claude
-```
-</details>
-
-<details>
-<summary><b>Q: 脚本提示"未找到匹配模式"？</b></summary>
-
-Claude 可能发布了新版本，JS 内部结构已变更。请到 [GitHub Issues](https://github.com/xiaoxianxian/Claude-Chinese-Toolkit/issues) 反馈，附上错误信息。
-</details>
-
-<details>
-<summary><b>Q: 对 Claude 功能有影响吗？</b></summary>
-
-无。所有修改仅涉及界面文字和语言判断逻辑，不影响 AI 模型能力和任何功能。
-</details>
-
-<details>
-<summary><b>Q: 翻译不完整/有错误？</b></summary>
-
-翻译文件基于 Claude 官方英文界面提取，部分新版本新增字符串可能暂无翻译。  
-欢迎提交 PR 完善翻译！参见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-</details>
+- ⚠️ 运行前确保 Claude **完全退出**（Cmd+Q，而不仅仅是关闭窗口）
+- ⚠️ 每次 Claude 版本更新后需重新执行一次
+- ⚠️ 本工具修改 Claude.app 内部文件，自行承担使用风险
 
 ---
 
@@ -272,15 +344,6 @@ Claude-Chinese-Toolkit 欢迎社区贡献！
 - 🌍 **贡献翻译**：帮助完善中文翻译，或添加其他语言！参见 [CONTRIBUTING.md](CONTRIBUTING.md)
 - 💻 **贡献代码**：改进脚本、添加新功能、支持更多平台
 - ⭐ **Star 支持**：在 GitHub 上给个 Star，让更多人看到
-
----
-
-## 📝 注意事项
-
-- ⚠️ 运行前确保 Claude **完全退出**（Cmd+Q，而不仅仅是关闭窗口）
-- ⚠️ 每次 Claude 版本更新后需重新执行一次
-- ⚠️ 目前仅完整测试了 **macOS** 版本（Windows/Linux 欢迎贡献支持）
-- ⚠️ 本工具修改 Claude.app 内部文件，自行承担使用风险
 
 ---
 
