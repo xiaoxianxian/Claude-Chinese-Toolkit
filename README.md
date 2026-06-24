@@ -225,6 +225,53 @@ sudo bash claude-zh-CN.sh --install --no-ai
 ### Q10: 汉化翻译覆盖了多少百分比？
 **A:** 目前已汉化约 16,000+ 条字符串，覆盖界面 95%+ 的内容。剩余少量可能是 Claude 新功能的未翻译字符串。
 
+### Q11: 我用 CC Switch 等第三方工具代理了 Claude，AI 回复还是英文怎么办？
+**A:** 这是正常现象，不在本工具的解决范畴。原因如下：
+
+**为什么本工具对 CC Switch 用户无效？**
+本工具通过两种途径实现 AI 交互中文：
+
+1. **`system_prompt.txt` 文件**：写入 `~/Library/Application Support/Claude/` 目录，这是 Claude Desktop 原生支持的 system prompt 文件。但当用户使用 CC Switch 等第三方代理工具时，Claude Desktop 的请求不再发送到 Anthropic 官方服务器，而是通过代理转发到指定的供应商。**CC Switch 有自己的 Prompts 管理面板，本工具的 `system_prompt.txt` 不会被 CC Switch 读取和应用。**
+
+2. **`CLAUDE.md` 文件**：CC Switch 推荐的自定义 system prompt 写入路径是 `~/.claude/CLAUDE.md`，而非本工具写入的 `system_prompt.txt`。
+
+**如何解决？使用 CC Switch 自带的 Prompts 功能：**
+1. 打开 CC Switch，点击顶部导航栏的 **Prompts** 按钮
+2. 切换到 Claude 应用模式（确保显示的是 Claude 专属的预设列表）
+3. 点击右上角的 **+** 按钮创建新提示词预设
+4. 在 Markdown 编辑器中输入中文指令，例如：
+   ```markdown
+   # 角色设定
+   你是一个专业的软件开发助手，你需要始终使用简体中文与用户交流。
+
+   ## 核心要求
+   - 所有回复内容必须使用简体中文
+   - 包括代码注释、错误信息、技术分析说明等
+   - 代码本身保持英文格式，但在关键逻辑处添加中文注释
+   ```
+5. 点击右上角开关激活该预设
+
+激活后，CC Switch 会自动将提示词写入 `~/.claude/CLAUDE.md`，Claude AI 就会使用中文回复了。
+
+**CC Switch Prompts 的优势：**
+- **可视化配置**：无需手动编辑文件，通过图形界面管理
+- **按需切换**：可为不同场景创建多个预设（如 Bug 排查、代码重构、日常问答）
+- **智能回填保护**：即使你在终端手动修改了 `CLAUDE.md`，切换预设时也不会丢失修改
+- **按应用隔离**：Claude、Codex、Gemini 各有独立的预设列表
+
+更多 CC Switch Prompts 使用方法，请参考官方文档：https://cc-switch.cc/tutorials/prompts-management
+
+---
+
+## ⚠️ 重要说明
+
+### 本工具的作用范围
+本工具专注于以下两个方面：
+1. **界面汉化**：将 Claude Desktop 的整个界面（菜单、对话框、设置页等）翻译成中文
+2. **AI 交互中文**：通过原生 `system_prompt.txt` 文件实现 AI 中文回复
+
+如果你使用 **CC Switch** 等第三方代理工具，界面汉化依然有效，但 AI 交互中文需要通过 CC Switch 的 **Prompts** 功能配置，不在本工具的管理范围内。
+
 ---
 
 ## 📝 更新日志
