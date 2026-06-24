@@ -36,7 +36,7 @@ CONFIG_FILE="$HOME/Library/Application Support/Claude/config.json"
 SYSTEM_PROMPT="$HOME/Library/Application Support/Claude/system_prompt.txt"
 LAUNCH_AGENT_PLIST="$HOME/Library/LaunchAgents/com.claude-zh-CN.auto-launch.plist"
 INVENTORY_FILE="$HOME/.claude-zh-inventory"
-VERSION="2.6"
+VERSION="2.7"
 
 # ── 全局变量 ────────────────────────────────────────────────────────
 MODE=""

@@ -93,13 +93,22 @@ def check_needs_repatch(js_file):
     if current_hash != saved_hash:
         return True, "JS 文件已被 Claude 更新替换"
 
-    # 检查补丁是否仍然生效
+    # 检查补丁是否仍然生效（支持多版本模式）
     with open(js_file, "r") as f:
         content = f.read()
-    if 'Hzt="zh-CN"' not in content and 'GTt="zh-CN"' not in content:
-        return True, "JS 补丁1 未生效（Hzt/GTt 未硬编码）"
-    if 'documentElement.lang="zh-CN"' not in content and 'documentElement.lang=Hzt' in content:
-        return True, "JS 补丁2c 未生效（documentElement.lang 未硬编码）"
+    # v1.15200.0+: mRt="zh-CN"
+    # v1.14271.0+: Hzt="zh-CN"
+    # 旧版: GTt="zh-CN"
+    has_patch1 = 'mRt="zh-CN"' in content or 'Hzt="zh-CN"' in content or 'GTt="zh-CN"' in content
+    if not has_patch1:
+        return True, "JS 补丁1 未生效（locale 未硬编码）"
+    # documentElement.lang
+    has_lang_hardcoded = 'documentElement.lang="zh-CN"' in content
+    if not has_lang_hardcoded and 'documentElement.lang=mRt' in content:
+        return True, "JS 补丁2c 未生效（documentElement.lang 未硬编码 mRt）"
+    if not has_lang_hardcoded and 'documentElement.lang=Hzt' in content:
+        return True, "JS 补丁2c 未生效（documentElement.lang 未硬编码 Hzt）"
+    # Bzt 阻断
     if 'if(e||!s?.locale)return' in content:
         return True, "JS 补丁2b 未生效（Bzt 阻断未移除）"
 
@@ -227,31 +236,41 @@ def patch_js(filepath, dry_run=False):
     applied = []
 
     # ── 补丁 1: 硬编码初始 locale ────────────────────────────────────────
-    # Claude 1.14271.0+ 改变了初始化方式:
-    # const Uzt="spa:locale",Hzt=mN([...navigator.languages])
-    # 需要替换为: const Uzt="spa:locale",Hzt="zh-CN"
+    # Claude 1.15200.0+ 使用 pRt/mRt:
+    # pRt="spa:locale",mRt=xE([(()=>{try{return localStorage.getItem(pRt)}catch{return null}})(),...navigator.languages])
+    # 需要替换为: pRt="spa:locale",mRt="zh-CN"
     
-    p1_old = 'const Uzt="spa:locale",Hzt=mN([(()=>{try{return localStorage.getItem(Uzt)}catch{return null}})(),...navigator.languages])'
-    p1_new = 'const Uzt="spa:locale",Hzt="zh-CN"'
+    p1_new_v15200 = 'pRt="spa:locale",mRt="zh-CN"'
+    p1_old_v15200 = 'mRt=xE([(()=>{try{return localStorage.getItem(pRt)}catch{return null}})(),...navigator.languages])'
     
-    if p1_old in content:
-        content = content.replace(p1_old, p1_new)
-        applied.append("补丁1: Hzt 硬编码为 zh-CN (新版初始化)")
-    elif 'GTt="zh-CN"' in content:
+    if p1_old_v15200 in content:
+        content = content.replace(p1_old_v15200, 'mRt="zh-CN"')
+        applied.append("补丁1: mRt 硬编码为 zh-CN (v1.15200.0+)")
+    elif 'mRt="zh-CN"' in content:
         applied.append("补丁1: 已应用，跳过")
     else:
-        # 回退到旧模式
-        p1_fallback = re.compile(r'GTt=\w+\(\[.*?navigator\.languages.*?\]\)')
-        m1 = p1_fallback.search(content)
-        if m1:
-            content = content[:m1.start()] + 'GTt="zh-CN"' + content[m1.end():]
-            applied.append("补丁1: GTt 硬编码为 zh-CN (旧版)")
+        # Claude 1.14271.0+ 使用 Hzt/mN:
+        p1_old = 'const Uzt="spa:locale",Hzt=mN([(()=>{try{return localStorage.getItem(Uzt)}catch{return null}})(),...navigator.languages])'
+        p1_new = 'const Uzt="spa:locale",Hzt="zh-CN"'
+        
+        if p1_old in content:
+            content = content.replace(p1_old, p1_new)
+            applied.append("补丁1: Hzt 硬编码为 zh-CN (v1.14271.0+)")
         elif 'GTt="zh-CN"' in content:
             applied.append("补丁1: 已应用，跳过")
         else:
-            print(f"  ✗ 补丁1: 未找到匹配模式（Claude 版本可能不兼容）")
-            print(f"     请在 GitHub 提 issue 并附上 JS 文件名")
-            return False
+            # 回退到旧模式
+            p1_fallback = re.compile(r'GTt=\w+\(\[.*?navigator\.languages.*?\]\)')
+            m1 = p1_fallback.search(content)
+            if m1:
+                content = content[:m1.start()] + 'GTt="zh-CN"' + content[m1.end():]
+                applied.append("补丁1: GTt 硬编码为 zh-CN (旧版)")
+            elif 'GTt="zh-CN"' in content:
+                applied.append("补丁1: 已应用，跳过")
+            else:
+                print(f"  ✗ 补丁1: 未找到匹配模式（Claude 版本可能不兼容）")
+                print(f"     请在 GitHub 提 issue 并附上 JS 文件名")
+                return False
 
     # ── 补丁 2: 阻止 API 覆盖 + 移除 Bzt 阻断 ────────────────────────────
     # 2a. 阻止 API 回调覆盖 (旧版补丁)
@@ -274,13 +293,22 @@ def patch_js(filepath, dry_run=False):
         applied.append("补丁2b: 移除 Bzt 中的 !s?.locale 阻断")
     
     # 2c. 硬编码 documentElement.lang
-    old_lang = 'documentElement.lang=Hzt'
-    new_lang = 'documentElement.lang="zh-CN"'
-    if old_lang in content:
-        content = content.replace(old_lang, new_lang)
-        applied.append("补丁2c: documentElement.lang 硬编码为 zh-CN")
+    # Claude 1.15200.0+ 直接使用 mRt 变量引用
+    old_lang_v15200 = 'documentElement.lang=mRt'
+    if old_lang_v15200 in content:
+        content = content.replace(old_lang_v15200, 'documentElement.lang="zh-CN"')
+        applied.append("补丁2c: documentElement.lang 硬编码为 zh-CN (v1.15200.0+)")
     elif 'documentElement.lang="zh-CN"' in content:
         if not any('zh-CN' in a for a in applied if '2c' in a):
+            applied.append("补丁2c: 已应用，跳过")
+    else:
+        # 旧版使用 Hzt 变量
+        old_lang = 'documentElement.lang=Hzt'
+        new_lang = 'documentElement.lang="zh-CN"'
+        if old_lang in content:
+            content = content.replace(old_lang, new_lang)
+            applied.append("补丁2c: documentElement.lang 硬编码为 zh-CN (旧版)")
+        elif 'documentElement.lang="zh-CN"' in content:
             applied.append("补丁2c: 已应用，跳过")
 
     # ── 写入或 dry-run ────────────────────────────────────────────────────

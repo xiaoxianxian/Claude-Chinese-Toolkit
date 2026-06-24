@@ -1,4 +1,4 @@
-# Claude Desktop 简体中文汉化 v2.6.1
+# Claude Desktop 简体中文汉化 v2.7
 
 > 一键安装 / 一键卸载 / 一键重装 — macOS 平台最完整的 Claude Desktop 汉化工具
 
@@ -276,7 +276,25 @@ sudo bash claude-zh-CN.sh --install --no-ai
 
 ## 📝 更新日志
 
-### v2.6.1 (2026-06-23) - 当前版本
+### v2.7 (2026-06-24) - 当前版本
+
+**新功能：**
+- ✅ 新增 Claude 1.15200.0+ 版本支持（使用 pRt/mRt 变量替代 Hzt/GTt）
+- ✅ 补丁1 自动检测新版变量名模式
+- ✅ 补丁2c 支持 documentElement.lang=mRt 硬编码
+- ✅ check_needs_repatch() 支持多版本补丁检测
+
+**兼容性改进：**
+- ✅ patch_js.py 同时支持旧版（Hzt/mN）和最新版（mRt/xE）初始化模式
+- ✅ 向下兼容 Claude 1.14271.0+ 及以下版本
+
+**代码统计：**
+```
+patch_js.py: 新增 v1.15200.0+ 兼容逻辑
+claude-zh-CN.sh: 版本号升级 2.6 → 2.7
+```
+
+### v2.7 (2026-06-24) - 当前版本
 
 **修复：**
 - ✅ N3: 无效参数现在会正确报错并显示帮助信息（之前默认进入安装模式）
